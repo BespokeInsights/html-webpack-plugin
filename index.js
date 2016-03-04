@@ -16,6 +16,9 @@ function HtmlWebpackPlugin (options) {
     filename: 'index.html',
     hash: false,
     inject: true,
+    include: ['styles', 'scripts', 'favicon', 'manifest'],
+    tagPadding: '    ',
+    message: 'Injected by HtmlWebpackPlugin',
     compile: true,
     favicon: false,
     minify: false,
@@ -426,28 +429,48 @@ HtmlWebpackPlugin.prototype.injectAssetsIntoHtml = function (html, assets) {
   var body = [];
   var bodyRegExp = /(<\/body>)/i;
 
+  var include = this.options.include;
+  var tagPadding = this.options.tagPadding;
+  var tagSeparator = '\n' + tagPadding;
+  var message = this.options.message;
+
   // If there is a favicon present, add it to the head
-  if (assets.favicon) {
+  if (assets.favicon && include.indexOf('favicon') !== -1) {
     head.push('<link rel="shortcut icon" href="' + assets.favicon + '">');
   }
-  // Add styles to the head
-  head = head.concat(styles);
-  // Add scripts to body or head
-  if (this.options.inject === 'head') {
-    head = head.concat(scripts);
-  } else {
-    body = body.concat(scripts);
+  if (include.indexOf('styles') !== -1) {
+    // Add styles to the head
+    head = head.concat(styles);
+  }
+
+  if (include.indexOf('scripts') !== -1) {
+    // Add scripts to body or head
+    if (this.options.inject === 'head') {
+      head = head.concat(scripts);
+    } else {
+      body = body.concat(scripts);
+    }
+  }
+
+  if (message && body.length) {
+    body.unshift('<!-- BEGIN ' + message + '-->');
+    body.push('<!-- END ' + message + '-->');
+  }
+
+  if (message && head.length) {
+    head.unshift('<!-- BEGIN ' + message + '-->');
+    head.push('<!-- END ' + message + '-->');
   }
 
   if (body.length) {
     if (bodyRegExp.test(html)) {
       // Append assets to body element
       html = html.replace(bodyRegExp, function (match) {
-        return body.join('') + match;
+        return tagPadding + body.join(tagSeparator) + match;
       });
     } else {
       // Append scripts to the end of the file if no <body> element exists:
-      html += body.join('');
+      html += tagPadding + body.join(tagSeparator);
     }
   }
 
@@ -465,12 +488,12 @@ HtmlWebpackPlugin.prototype.injectAssetsIntoHtml = function (html, assets) {
 
     // Append assets to head element
     html = html.replace(headRegExp, function (match) {
-      return head.join('') + match;
+      return tagPadding + head.join(tagSeparator) + match;
     });
   }
 
   // Inject manifest into the opening html tag
-  if (assets.manifest) {
+  if (assets.manifest && include.indexOf('manifest') !== -1) {
     html = html.replace(/(<html[^>]*)(>)/i, function (match, start, end) {
       // Append the manifest only if no manifest was specified
       if (/\smanifest\s*=/.test(match)) {
